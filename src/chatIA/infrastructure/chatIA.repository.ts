@@ -32,7 +32,7 @@ export class ChatIARepository implements OnModuleDestroy, IChatIARepository {
     try {
       client = await this.pool.connect();
       const result = await client.query(query, params);
-      return result.rows;
+      return result.rows as T[];
     } catch (error) {
       console.error('Error executing query:', error);
       throw error;

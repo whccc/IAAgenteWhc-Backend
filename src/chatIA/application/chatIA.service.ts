@@ -1,6 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Client } from 'pg';
-import * as dotenv from 'dotenv';
 import type { IOllamaRepository } from '../infrastructure/interfaces/ollama.repository.interface';
 import { OllamaRepositoryToken } from '../infrastructure/interfaces/ollama.repository.interface';
 import type { IChatIARepository } from '../infrastructure/interfaces/chatIA.repository.interface';
@@ -8,12 +7,9 @@ import { ChatIARepositoryToken } from '../infrastructure/interfaces/chatIA.repos
 import { IChatIAService } from './interfaces/chatIA.service.interface';
 import { IRequestPromptDto } from '../presentation/dtos/requestPromt.dto';
 import { ISqlResult } from './interfaces/chatIA.interfaces';
-dotenv.config();
 
 @Injectable()
 export class ChatSqlService implements IChatIAService {
-  private pgClient: Client;
-
   constructor(
     @Inject(OllamaRepositoryToken)
     private readonly aiProvider: IOllamaRepository,
@@ -33,17 +29,19 @@ export class ChatSqlService implements IChatIAService {
     Schema:
     ${this.chatIARepository.getSchemaText()}
     Usuario pregunta: ${userPrompt.prompt}
-    Devuelve solo la consulta SQL.
+    Devuelve solo la consulta SQL como string lista para ejecutar.
+    Solo la consulta SQL. Sin explicaciones ni comentarios.
+    NO uses \`\`\`sql ni \`\`\`.
     `;
 
     const sqlQuery = await this.aiProvider.queryOllama(systemPrompt);
     console.log('SQL generado:', sqlQuery);
 
     try {
-      const res = await this.pgClient.query(sqlQuery);
+      const res = await this.chatIARepository.executeQuery(sqlQuery);
       return {
         sql: sqlQuery,
-        result: res.rows,
+        result: res,
       };
     } catch (error) {
       return {

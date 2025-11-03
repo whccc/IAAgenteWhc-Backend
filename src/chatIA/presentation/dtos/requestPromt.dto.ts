@@ -11,7 +11,7 @@ export interface IRequestPromptDto {
   context?: string;
 }
 
-export class RequestPromptDto {
+export class RequestPromptDto implements IRequestPromptDto {
   @IsString({ message: 'El prompt debe ser un string' })
   @IsNotEmpty({ message: 'El prompt no puede estar vacío' })
   @MinLength(1, { message: 'El prompt debe tener al menos 1 caracter' })

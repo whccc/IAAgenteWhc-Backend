@@ -1,20 +1,57 @@
-import { Injectable } from '@nestjs/common';
-import { spawn } from 'child_process';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { IOllamaRepository } from './interfaces/ollama.repository.interface';
 
 @Injectable()
 export class OllamaRepository implements IOllamaRepository {
-  public async queryOllama(prompt: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const proc = spawn('ollama', ['generate', 'llama2', '--prompt', prompt]);
+  private readonly ollamaUrl = 'http://localhost:11434';
 
-      let output = '';
-      proc.stdout.on('data', (data) => (output += data.toString()));
-      proc.stderr.on('data', (err) => console.error(err.toString()));
-      proc.on('close', (code) => {
-        if (code === 0) resolve(output.trim());
-        else reject(`Ollama exited with ${code}`);
+  public async queryOllama(prompt: string): Promise<string> {
+    try {
+      const response = await fetch(`${this.ollamaUrl}/api/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gemma3',
+          prompt: prompt,
+          stream: false,
+        }),
       });
-    });
+
+      if (!response.ok) {
+        throw new HttpException(
+          `Ollama API error: ${response.statusText}`,
+          HttpStatus.BAD_GATEWAY,
+        );
+      }
+      const data = await response.json();
+
+      const rawResponse = data.response || '';
+      const cleanSQL = this.extractSQL(rawResponse);
+
+      return cleanSQL;
+    } catch (error) {
+      console.error('Error calling Ollama API:', error);
+      throw new HttpException(
+        'Failed to get response from Ollama',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private extractSQL(response: string): string {
+    let cleanSQL = response
+      .replace(/```sql\s*\n?/gi, '')
+      .replace(/```\s*$/g, '');
+    cleanSQL = cleanSQL.replace(/```\s*\n?/g, '').replace(/```\s*$/g, '');
+
+    cleanSQL = cleanSQL.trim();
+
+    if (!cleanSQL || cleanSQL.length === 0) {
+      return response.trim();
+    }
+
+    return cleanSQL;
   }
 }
